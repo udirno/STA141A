@@ -1,0 +1,484 @@
+---
+title: "Studying Cumulative COVID Cases in the USA"
+author: "Udirno Chaudhuri: 916895451, Team id: 10"
+date: "03/14/2022"
+output: html_document
+---
+
+## Data Background and Introduction 
+
+WHO COVID-19 data:
+
+We will explore the WHO COVID-19 data in this project. You can take a look at the [weekly WHO COVID-19 update](https://www.who.int/emergencies/diseases/novel-coronavirus-2019/situation-reports) for reference.
+
+The Coronavirus, originated from the SARS-CoV-2 virus was first discovered back in 2019. It is a highly contagious virus that causes sever negative respiratory symptoms similar to pneumonia and the flu. Since then the virus has been declared a global pandemic and the illness has caused millions of deaths worldwide. Although the pandemic has become more controlled in the last year, there is a lot fear revolving its unpredictability. We hope to use the WHO data provided to gain insight as to its trends so we can potentially avoid any more surprises.
+
+This data set is maintained by WHO and updated constantly with already over 189420 observations across 8 variables. The variables we chose decided to choose of interest are "Date Reported", "Cumulative Cases", "Cumulative Deaths", additionally we plan to calculate the mortality rate as cumulative deaths/cumulative cases in order to make analysis easier.
+
+For our project we will explore a Coronavirus data set provided by the WHO. It is updated daily and the source is credible. The data set provides the weekly Epidemiological update of the coronavirus across global countries. We want to use this information to explore the relationship between the mean cumulative coronavirus cases in the USA and the time of year. We are going to segment the "Date Reported" variable into 3 segments (Jan-Apr, May-Aug, Sep-Dec) and specifically only look at cases in the year 2021. We will observe the "Cumulative Cases" in those time frames for our specific modelto determine which range of months is worse or better in terms of cumulative coronavirus cases in just the USA. This will help to determine trends in covid cases throughout the year based on our monthly ranges. This will allow us to better equip ourselves against the coronavirus similar to how we already do with the cyclic "flu season". The goal is to use a single factor ANOVA model to observe mean cumulative covid cases in the USA throughout the year. We will also continue our analysis by fitting another alternative model, a two factor ANOVA model to compare covid case surges in the USA with another country: India.   
+
+## Questions of Interest
+
+a. How does the time of year affect the mean number of cumulative covid cases in America, specifically in the year 2021?
+
+b. We will examine the mean cumulative covid cases using a single factor ANOVA model to answer the question stated above. Additionally, we will also fit a two factor ANOVA model to compare mean cumulative covid cases between the USA and India so that we can gain some insight to answer the question: how have different regions of the world reacted to the pandemic? Visualizations will include "Cumulative Cases", "Cumulative Deaths" and "Mortality Rates" in an effort to understand the data being given.
+
+c. Does country (India vs USA) have an affect on the number of covid cases across 12 months? 
+
+## Introducing our Data Set
+
+```{r, echo = FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+covid <- read_csv("https://covid19.who.int/WHO-COVID-19-global-data.csv")
+summary(covid)
+```
+
+We will only be focusing on a few of these variables, the rest are to just show the extent to which COVID data is being collected and potential further analysis. Using the variables we select we will first have to satisfy the assumptions and conditions associated with our proposed models.
+
+```{r, echo = FALSE}
+usa_covid <- covid %>% filter(Country == "United States of America")
+india_covid <- covid %>% filter(Country == "India")
+
+# Sub-setting the USA data into monthly time periods using index 
+jan_april_usa <- usa_covid[c(365:484),]
+may_aug_usa <- usa_covid[c(485:607),]
+sept_dec_usa <- usa_covid[c(608:729),]
+
+# Sub-setting the India data into monthly time periods using index 
+jan_april_india <- india_covid[c(365:484),]
+may_aug_india <- india_covid[c(485:607),]
+sept_dec_india <- india_covid[c(608:729),]
+
+# Adding a month column for each month - USA
+jan_april_vec <- rep(c(1,2,3,4),times = c(31,28,31,30)) 
+jan_april_usa$month <- jan_april_vec
+# jan_april_vec
+
+may_aug_vec <- rep(c(5,6,7,8), times = c(31,30,31,31))
+may_aug_usa$month <- may_aug_vec
+
+sept_dec_vec <- rep(c(9,10,11,12), times = c(30,31,30,31))
+# sept_dec_vec
+sept_dec_usa$month <- sept_dec_vec
+
+# Adding a month column for each month - India
+jan_april_vec <- rep(c(1,2,3,4),times = c(31,28,31,30)) 
+jan_april_india$month <- jan_april_vec
+
+may_aug_vec <- rep(c(5,6,7,8), times=c(31,30,31,31))
+may_aug_india$month <- may_aug_vec
+
+sept_dec_vec <- rep(c(9,10,11,12), times=c(30,31,30,31))
+sept_dec_india$month <- sept_dec_vec
+
+merged_usa <- rbind(jan_april_usa,may_aug_usa)
+merged_usa <- rbind(merged_usa,sept_dec_usa)
+
+merged_india <- rbind(jan_april_india, may_aug_india)
+merged_india <- rbind(merged_india,sept_dec_india)
+
+group_vec <- rep(c(1,2,3), times=c(120, 123, 122))
+merged_usa$group <- group_vec
+merged_india$group <- group_vec
+
+mortality_rate_usa <- merged_usa$Cumulative_deaths/merged_usa$Cumulative_cases
+mortality_rate_india <- merged_india$Cumulative_deaths/merged_india$Cumulative_cases
+head(merged_usa$mort_rate <- mortality_rate_usa)
+head(merged_india$mort_rate <- mortality_rate_india)
+```
+Notice we have displayed the first 6 values for COVID mortality rates in the USA and India respectively. These can be interpreted as percentages.
+
+## Additional Summary Statistics by time period
+
+In order to make our analysis cleaner and more interpretable, we have grouped each of the 12 months into a three separate ranges of months for which we plan to observe the summary statistics as an initial effort to identify any overall trends in the data.
+
+5 number summary for the months January through April in the U.S.:
+```{r}
+summary(jan_april_usa)
+```
+
+5 number summary for the months May through August in the U.S.:
+```{r}
+summary(may_aug_usa)
+```
+
+5 number summary for the months September through December in the U.S.:
+```{r}
+summary(sept_dec_usa)
+```
+
+5 number summary for the months January through April in India:
+```{r}
+summary(jan_april_india)
+```
+
+5 number summary for the months May through August in India:
+```{r}
+summary(may_aug_india)
+```
+
+5 number summary for the months September through December in India:
+```{r}
+summary(sept_dec_india)
+```
+
+Next let us look at the plots of each of our three main variables: Cumulative Cases, Cumulative Deaths, and Mortality Rates. We will prepare two plots for each variable. A line graph to make it easier to observe smaller variations in trend followed by a bar graph that is grouped into three groups based on the range of months we discussed previously i.e. Group 1 (Jan-Apr), Group 2 (May-Aug), Group 3 (Sep - Dec).
+
+## Cumulative Cases Plots:
+```{r, echo = FALSE}
+par(mfrow=c(2,1))
+ggplot(data = merged_usa, mapping = aes(x = Date_reported, y = Cumulative_cases)) + geom_line() + ggtitle("USA Cumulative Cases")
+result <- merged_usa %>% group_by(group) %>% summarise(cum_cases=mean(Cumulative_cases))
+merged_plot <- ggplot(result, aes(x=group, y=cum_cases, fill=Cumulative_cases)) + geom_col(fill="#0099f9") + scale_y_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6)) + ggtitle("USA Cumulative Cases")
+merged_plot
+```
+The independent variable in this case is the date reported and the dependent variable is the number of total cases in the USA. Observe the trend in the US Cumulative COVID Cases graph. The curve is relatively linear and follows a positive trend. We can quickly make some obvious observations based on this visualization. For example between Jan 2021 and Jan 2022 the cumulative number of cases more than doubled.
+
+The more general bar graphs show a clear increase in cumulative across all three USA groups. Group 3 had a max of over 45 million and the increase supports the linear trend shown in the line graph.
+
+```{r, echo = FALSE}
+par(mfrow=c(2,1))
+ggplot(data = merged_india, mapping = aes(x = Date_reported, y = Cumulative_cases)) + geom_line() + ggtitle("India Cumulative Cases") 
+result_1 <- merged_india %>% group_by(group) %>% summarise(cum_cases=mean(Cumulative_cases))
+merged_plot1 <- ggplot(result_1, aes(x=group, y=cum_cases, fill=Cumulative_cases)) + geom_col(fill="#0099f9") + scale_y_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6)) + ggtitle("India Cumulative Cases") 
+merged_plot1
+```
+Similarly here the independent variable is the date reported and the dependent variable is the number of total cases in India. Observe the trend in India's Cumulative COVID Cases graph. The curve is not linear and instead grows exponentially before plateauing out. All throughout however, the number of cases is increasing. We can quickly make some obvious observations based on this visualization. For example between Jan 2021 and Jan 2022 the cumulative number of covid cases in India more than tripled.
+
+This bar graph shows a sharp jump between group 1 and group 2 which is also reflected in the line graph. We notice that the scale of cumulative cases for India is smaller however the rate at which cumulative cases increased is more rapid than the USA.
+
+## Cumulative Deaths Plots:
+```{r, echo = FALSE}
+par(mfrow=c(2,1))
+ggplot(data = merged_usa, mapping = aes(x = Date_reported, y = Cumulative_deaths)) + geom_line() + ggtitle("USA Cumulative Deaths") 
+result_2 <- merged_usa %>% group_by(group) %>% summarise(cum_deaths=mean(Cumulative_deaths))
+merged_plot2 <- ggplot(result_2, aes(x=group, y=cum_deaths, fill=Cumulative_deaths)) + geom_col(fill="#0099f9") + scale_y_continuous(labels = scales::unit_format(unit = "k", scale = 1e-3)) + ggtitle("USA Cumulative Deaths") 
+merged_plot2
+```
+Perhaps the most important variable for our analysis, cumulative deaths in the USA is plotted as the dependent variable against date reported, our independent variable. The graph shows a relatively positive linear trend with the cumulative number of deaths approximately doubling over the period of 12 months.
+
+In the bar graph above, USA Cumulative Deaths increases in a steady positive linear trend across all three groups. From first glance, before fitting any model we can see that there does not appear to be any anomalies in the data other than that cumulative deaths shows no signs of slowing down which is alarming.
+
+```{r, echo = FALSE}
+par(mfrow=c(2,1))
+ggplot(data = merged_india, mapping = aes(x = Date_reported, y = Cumulative_deaths)) + geom_line() + ggtitle("India Cumulative Deaths") 
+result_3 <- merged_india %>% group_by(group) %>% summarise(cum_deaths=mean(Cumulative_deaths))
+merged_plot3 <- ggplot(result_3, aes(x=group, y=cum_deaths, fill=Cumulative_deaths)) + geom_col(fill="#0099f9") + scale_y_continuous(labels = scales::unit_format(unit = "k", scale = 1e-3)) + ggtitle("India Cumulative Deaths") 
+merged_plot3
+```
+Similarly, in this graph the cumulative deaths in India is plotted as the dependent variable against date reported, our independent variable. The graph shows positive exponential trend that eventually plateaus out. Observe that the cumulative number of deaths in India more than triples over the period of 12 months.
+
+The cumulative deaths bar graph for India also reflects its respective line graph showing a sharp exponential increase between group 1 and 2. That suggests that between the months of April and May there is significant change in the number of cumulative covid deaths in India.
+
+## Mortality Rates Plots: 
+
+To combine the two previous variables we calculated a mortality rate by dividing (cumulative deaths)/(cumulative cases). The mortality basically gives us a percentage for the number of deaths ina ceratin region of our two populations. We will be looking at the mortality rates for the USA and India.
+
+```{r, echo = FALSE}
+par(mfrow=c(2,1))
+ggplot(data = merged_usa, mapping = aes(x = Date_reported, y = Cumulative_deaths/Cumulative_cases)) + geom_line() + ggtitle("USA Mortality Rates")
+result_4 <- merged_usa %>% group_by(group) %>% summarise(case_mort=mean(Cumulative_deaths/Cumulative_cases))
+merged_plot_4 <- ggplot(result_4, aes(x=group, y=case_mort, fill=case_mort)) + geom_col(fill="#0099f9") + ggtitle("USA Mortality Rates") 
+merged_plot_4
+```
+The overall trend for USA mortality rate is declining however it does so irregularly. The mortality rate shot up between Feb and Apr of 2021 before shooting back down shortly after, almost exponentially. A decline in the mortality rate tells us that the number of people dying is decreasing which is good news but the rate at which it is decreasing is not constant/linear.
+
+This bar graph is interesting because it shows that mortality rate is relatively constant across all three groups. There is a decline overall however it is far less drastic compared to the other trends we have observed thus far with our other variables. Group 3 does have the lowest mortality rate which is and although the rate of decline is slow it is reassuring to see that it is going down.
+
+```{r, echo = FALSE}
+par(mfrow=c(2,1))
+ggplot(data = merged_india, mapping = aes(x = Date_reported, y = Cumulative_deaths/Cumulative_cases)) + geom_line() + ggtitle("India Mortality Rates") 
+result_5 <- merged_india %>% group_by(group) %>% summarise(case_mort=mean(Cumulative_deaths/Cumulative_cases))
+merged_plot5 <- ggplot(result_5, aes(x=group, y=case_mort, fill=case_mort)) + geom_col(fill="#0099f9") + ggtitle("India Mortality Rates") 
+merged_plot5
+```
+
+The trend for India's mortality rate is slightly alarming based on our merged data. Initially there is a sharp drop in mortality rate after April 2021 however instead of staying low it exponentially shoots back up before plateauing. Based on the latest data from Jan 2022 it appears that the mortality rate is also on the rise which is unusual and alarming for India.
+
+When observing the monthly range bar graph for mortality rates in India we observe that there is an increase in mortality rate between group 2 and 3. This indicates that more people died at a higher rate from covid between August and September 2021 even with the introduction of the vaccine. This is not the same trend as the USA mortality rate which declined with each progressive group. This is alarming for India and the question should defintely be raised as to why mortality rate increased in group 3 despite a decrease from group 1 to group 2.
+
+At first glance, we noticed that there exist several outliers in our dataset. A boxplot can help us closely and quickly analyze the outliers pertaining to the mortality rate that in context of the COVID pandemic is something we would be most interested in. Analyzing the outliers within the mortality rate calculated specifically can provide us with insight towards our statistical models and predict how they will be skewed and make the necessary adjustments. We will see later how a transformation is sometimes required before proceeding with model analysis.
+
+## Additional Monthly Boxplot visualizations
+
+```{r, echo = FALSE}
+boxplot(Cumulative_cases / Cumulative_deaths ~ month, data = merged_usa, ylab = "USA mortality rate")
+```
+
+I have also included a boxplot for USA mortality rate for the sake of visualizing the five number summary as well as observing any distinct outliers present that might potentially skew our model analysis. Notice that for month 12 (December 2021) there is a distinct upper bound outlier skewing the mortality rate higher.
+
+```{r, echo = FALSE}
+boxplot(Cumulative_cases / Cumulative_deaths ~ month, data = merged_india, ylab = "India mortality rate")
+```
+Once again I have added a boxplot visualizing India mortality rate. Notice that for months 4-6 the spread/range of mortality rates is much higher relative to any other groups of months. T there is a distinct upper bound outlier skewing the mortality rate higher.
+
+## Proposed Model and Sensitivity Analysis
+
+Our first proposed model will be the single factor ANOVA model. The factor will be the time of year (i.e. Jan-Apr) and we will observe any difference in the mean cumulative COVID cases in the USA between each time period. 
+
+Assumptions of Single Factor ANOVA:
+  - Individual samples are taken from normally distributed population
+  - Individual samples are independently drawn (random sampling)
+  - Variance is the same across different groups (homegeneity)
+  - Continuous dependent variable (cumulative COVID cases)
+  
+Hypotheses of interest in our single factor ANOVA are as follows:
+
+H0: u1 = u2 = u3 ... = uk mean cumulative cases across all months are equal. (not significant)
+H1: Mean cumulative cases across all months are not all equal. (significant)
+
+where k = # of independent comparison groups (months/groups)
+
+Our second proposed model is similar but will be a two factor ANOVA model. The same assumptoins apply the only difference is that we include another factor, a new country which will be India. This model is intended to help us answer our question of interest regarding the effect of region on cumulative covid cases since now we are observing it on an international scale.
+
+Assumptions of Two Factor ANOVA (same as single factor):
+  - Individual samples are taken from normally distributed population
+  - Individual samples are independently drawn (random sampling)
+  - Variance is the same across different groups (homegeneity)
+  - Continuous dependent variable (cumulative COVID cases)
+
+## Shapiro Wilk Test 
+
+The purpose of running a Shapiro Wilk Test is to test for the normality of our population in order to satisfy the first assumption of ANOVA which is that the samples are taken from a populatoin that is normally distributed. (Additionally, since our sample size is also greater than 30 the central limit theorem supports our assumption even though we do not explicitly show it here)
+
+H0: The population is normally distributed
+HA: The population is not normally distributed
+
+We will also visualize a Q-Q plot in order to test for normality of mean Covid Cases in the USA to further satisfy this condition.
+
+The Random Sampling condition is met because we are going to randomly sample 50 observations from each group(1,2,3) for the USA and India however that will only be for the two way ANOVA model. 
+
+The Homogenity of variance condition is only met for our single factor ANOVA model because the residuals of our single factor ANOVA model are centered relatively constantly around 0. 
+
+*For our two way ANOVA model, the homogeneity of variance condition is not met so I performed a square root transformation. Although this was intended to help, it was not enough to satisfy the assumptoin so we must proceed with caution because this now introduces bias to our model. 
+
+```{r, echo = FALSE}
+# Randomly sampling from each population
+sample_usa <- merged_usa %>% group_by(group) %>% slice_sample(n=50)
+sample_india <- merged_india %>% group_by(group) %>% slice_sample(n=50)
+# model selection
+merged_country <- rbind(merged_usa,merged_india)
+merged_country <- merged_country %>% group_by(group) %>% slice_sample(n=50)
+```
+
+Single Factor ANOVA:
+```{r}
+# One-way ANOVA
+res_aov <- aov(Cumulative_cases ~ group, data = sample_usa)
+summary(res_aov) 
+res_aov1 <- aov(Cumulative_deaths ~ group, data=sample_usa)
+```
+The p-value of our Single Factor ANOVA model <2e-16 indicating we can reject H0 and conclude that there is a significant difference in the mean cumulative covid cases across at least two months.
+
+Square Root Transformations to attempt to satisfy conditions:
+```{r}
+# Sq. Rt transformation
+sample_india$Cumulative_cases <- (sample_india$Cumulative_cases)^(1/2)
+res_aov1 <- aov(Cumulative_cases ~ group + Country, data = merged_country)
+two_way_res1<-resid(res_aov1)
+shapiro.test(two_way_res1)
+```
+Based on the results of this shapiro test using the new square root transformed data for the India data we still see that it does not fulfill all the two factor ANOVA assumptions.
+
+Two Way ANOVA:
+```{r}
+# Two-way ANOVA
+two.way <- aov(Cumulative_cases ~ group + Country, data = merged_country)
+summary(two.way)
+```
+This model failed to satisfy the homogoeneity of variance assumption even with a square root transformation however taking bias into account we can observe that the pvalue is also below the .05 alpha level suggesting we reject our H0 and support HA.
+
+All of the assumptions of our Single-Factor ANOVA model are satisfied.
+
+# AIC and Model Selection
+```{r}
+# AIC used to determine the best model
+AIC(res_aov, two.way)
+```
+When determining which model to use we want the one with the lower respective AIC value because that represents how well our data fits the model. Based on the listed AIC values we can see that the res_aov value => Single Factor ANOVA model has a lower AIC value of 4916.253 so it would be wise to proceed with that.
+
+## Sensitivity Analysis and Residual Plots
+```{r, echo = FALSE}
+library(MASS)
+# Evaluate the normality of a Cumulative Cases using a Q-Q plot
+par(mfrow=c(2,4))
+plot(res_aov)
+plot(two.way)
+
+# Shapiro Test
+par(mfrow=c(2,1))
+one_way_res<-resid(res_aov1)
+shapiro.test(one_way_res)
+two_way_res <- resid(two.way)
+shapiro.test(two_way_res)
+```
+Our single factor ANOVA model meets all of its assumptions and is the primary model of choice based on its respective AIC value. We can also observe the Q-Q plots to observe the normality associated with its residuals before and after the square root transformation was made.
+
+Our two way ANOVA model is invalid only because the homogeneity of variance condition was not met, however it is still worth visualizing the respective residual plots. There appear to be significant outliers present on the tail ends of the normal Q-Q plot for both models especially this one. Notice how the graph of fitted values when compared to that of the single factor ANOVA model is much more volatile for the two way ANOVA model. This further supports our invalidity of the variance condition.
+
+## Conclusion
+
+It makes sense to reiterate our questions of interest:
+
+a. How does the time of year affect the mean number of cumulative covid cases in America, specifically in the year 2021?
+
+b. We will examine the mean cumulative covid cases using a single factor ANOVA model to answer the question stated above. Additionally, we will also fit a two factor ANOVA model to compare mean cumulative covid cases between the USA and India so that we can gain some insight to answer the question: how have different regions of the world reacted to the pandemic? Visualizations will include "Cumulative Cases", "Cumulative Deaths" and "Mortality Rates" in an effort to understand the data being given.
+
+c. Does country (India vs USA) have an affect on the number of covid cases across 12 months? 
+
+We made the decision that a Single factor ANOVA model would be appropriate with respect to time. Single factor ANOVA tests for statistical significance between the means of independent groups. In our case we had time as months throughout the year. For example, in our situation we can test against the null Hypothesis H0: Mean cumulative COVID cases in the USA are equal across all months. We wanted to understand how the mean cumulative cases varied within the 3 range of months we selected and a single factor ANOVA model is designed to do just that. 
+
+From out data visualization we also noticed that  there are many several clear outliers in this dataset. We applied a simple square root transformation in order to smoothen out the dataset and attempt to satisfy a homgoenity of variance condition for our second proposed model: Two Way ANOVA. Even with the transformation, our data suggests that the square root transformed data could not be better explained through two way ANOVA.
+
+Our final pvalue based off of our Single Factor ANOVA model lead us to conclude that there was in fact a significant difference between the mean cumulative COVID cases in the USA between the year Jan 2021 and Jan 2022. Our three groups helped to transform our data with ease and showed that there were case outliers in both group 1 (Jan - Apr) and group 3 (Sep - Dec) which suggests that moving forward those ranges of months are of particular iterest when monitoring COVID. This information can be acted on for exmple by investing more in COVID precautionary measures for those ranges of mnonths. Regardless, our analysis was conducted on the basis of 12 independent months of which we used several methods of data visualization to understand the overall trends that exist with USA cumulative COVID cases.
+
+Group Collab partners: Adarsh Pantula, Tarun Devesetti
+
+```{r, echo = TRUE, eval = FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+covid <- read_csv("https://covid19.who.int/WHO-COVID-19-global-data.csv")
+summary(covid)
+
+usa_covid <- covid %>% filter(Country == "United States of America")
+india_covid <- covid %>% filter(Country == "India")
+
+# Sub-setting the USA data into monthly time periods using index 
+jan_april_usa <- usa_covid[c(365:484),]
+may_aug_usa <- usa_covid[c(485:607),]
+sept_dec_usa <- usa_covid[c(608:729),]
+
+# Sub-setting the India data into monthly time periods using index 
+jan_april_india <- india_covid[c(365:484),]
+may_aug_india <- india_covid[c(485:607),]
+sept_dec_india <- india_covid[c(608:729),]
+
+# Adding a month column for each month - USA
+jan_april_vec <- rep(c(1,2,3,4),times = c(31,28,31,30)) 
+jan_april_usa$month <- jan_april_vec
+# jan_april_vec
+
+may_aug_vec <- rep(c(5,6,7,8), times = c(31,30,31,31))
+may_aug_usa$month <- may_aug_vec
+
+sept_dec_vec <- rep(c(9,10,11,12), times = c(30,31,30,31))
+# sept_dec_vec
+sept_dec_usa$month <- sept_dec_vec
+
+# Adding a month column for each month - India
+jan_april_vec <- rep(c(1,2,3,4),times = c(31,28,31,30)) 
+jan_april_india$month <- jan_april_vec
+
+may_aug_vec <- rep(c(5,6,7,8), times=c(31,30,31,31))
+may_aug_india$month <- may_aug_vec
+
+sept_dec_vec <- rep(c(9,10,11,12), times=c(30,31,30,31))
+sept_dec_india$month <- sept_dec_vec
+
+merged_usa <- rbind(jan_april_usa,may_aug_usa)
+merged_usa <- rbind(merged_usa,sept_dec_usa)
+
+merged_india <- rbind(jan_april_india, may_aug_india)
+merged_india <- rbind(merged_india,sept_dec_india)
+
+group_vec <- rep(c(1,2,3), times=c(120, 123, 122))
+merged_usa$group <- group_vec
+merged_india$group <- group_vec
+
+mortality_rate_usa <- merged_usa$Cumulative_deaths/merged_usa$Cumulative_cases
+mortality_rate_india <- merged_india$Cumulative_deaths/merged_india$Cumulative_cases
+head(merged_usa$mort_rate <- mortality_rate_usa)
+head(merged_india$mort_rate <- mortality_rate_india)
+
+summary(jan_april_usa)
+summary(may_aug_usa)
+summary(sept_dec_usa)
+
+summary(jan_april_india)
+summary(may_aug_india)
+summary(sept_dec_india)
+
+par(mfrow=c(2,1))
+ggplot(data = merged_usa, mapping = aes(x = Date_reported, y = Cumulative_cases)) + geom_line() + ggtitle("USA Cumulative Cases")
+result <- merged_usa %>% group_by(group) %>% summarise(cum_cases=mean(Cumulative_cases))
+merged_plot <- ggplot(result, aes(x=group, y=cum_cases, fill=Cumulative_cases)) + geom_col(fill="#0099f9") + scale_y_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6)) + ggtitle("USA Cumulative Cases")
+merged_plot
+
+par(mfrow=c(2,1))
+ggplot(data = merged_india, mapping = aes(x = Date_reported, y = Cumulative_cases)) + geom_line() + ggtitle("India Cumulative Cases") 
+result_1 <- merged_india %>% group_by(group) %>% summarise(cum_cases=mean(Cumulative_cases))
+merged_plot1 <- ggplot(result_1, aes(x=group, y=cum_cases, fill=Cumulative_cases)) + geom_col(fill="#0099f9") + scale_y_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6)) + ggtitle("India Cumulative Cases") 
+merged_plot1
+
+par(mfrow=c(2,1))
+ggplot(data = merged_usa, mapping = aes(x = Date_reported, y = Cumulative_deaths)) + geom_line() + ggtitle("USA Cumulative Deaths") 
+result_2 <- merged_usa %>% group_by(group) %>% summarise(cum_deaths=mean(Cumulative_deaths))
+merged_plot2 <- ggplot(result_2, aes(x=group, y=cum_deaths, fill=Cumulative_deaths)) + geom_col(fill="#0099f9") + scale_y_continuous(labels = scales::unit_format(unit = "k", scale = 1e-3)) + ggtitle("USA Cumulative Deaths") 
+merged_plot2
+
+par(mfrow=c(2,1))
+ggplot(data = merged_india, mapping = aes(x = Date_reported, y = Cumulative_deaths)) + geom_line() + ggtitle("India Cumulative Deaths") 
+result_3 <- merged_india %>% group_by(group) %>% summarise(cum_deaths=mean(Cumulative_deaths))
+merged_plot3 <- ggplot(result_3, aes(x=group, y=cum_deaths, fill=Cumulative_deaths)) + geom_col(fill="#0099f9") + scale_y_continuous(labels = scales::unit_format(unit = "k", scale = 1e-3)) + ggtitle("India Cumulative Deaths") 
+merged_plot3
+
+par(mfrow=c(2,1))
+ggplot(data = merged_usa, mapping = aes(x = Date_reported, y = Cumulative_deaths/Cumulative_cases)) + geom_line() + ggtitle("USA Mortality Rates")
+result_4 <- merged_usa %>% group_by(group) %>% summarise(case_mort=mean(Cumulative_deaths/Cumulative_cases))
+merged_plot_4 <- ggplot(result_4, aes(x=group, y=case_mort, fill=case_mort)) + geom_col(fill="#0099f9") + ggtitle("USA Mortality Rates") 
+merged_plot_4
+
+par(mfrow=c(2,1))
+ggplot(data = merged_india, mapping = aes(x = Date_reported, y = Cumulative_deaths/Cumulative_cases)) + geom_line() + ggtitle("India Mortality Rates") 
+result_5 <- merged_india %>% group_by(group) %>% summarise(case_mort=mean(Cumulative_deaths/Cumulative_cases))
+merged_plot5 <- ggplot(result_5, aes(x=group, y=case_mort, fill=case_mort)) + geom_col(fill="#0099f9") + ggtitle("India Mortality Rates") 
+merged_plot5
+
+par(mfrow=c(1,2))
+boxplot(Cumulative_cases / Cumulative_deaths ~ month, data = merged_usa, ylab = "USA mortality rate")
+boxplot(Cumulative_cases / Cumulative_deaths ~ month, data = merged_india, ylab = "India mortality rate")
+
+# Randomly sampling from each population
+sample_usa <- merged_usa %>% group_by(group) %>% slice_sample(n=50)
+sample_india <- merged_india %>% group_by(group) %>% slice_sample(n=50)
+# model selection
+merged_country <- rbind(merged_usa,merged_india)
+merged_country <- merged_country %>% group_by(group) %>% slice_sample(n=50)
+
+# One-way ANOVA
+res_aov <- aov(Cumulative_cases ~ group, data = sample_usa)
+summary(res_aov) 
+res_aov1 <- aov(Cumulative_deaths ~ group, data=sample_usa)
+
+# Sq. Rt transformation
+sample_india$Cumulative_cases <- (sample_india$Cumulative_cases)^(1/2)
+res_aov1 <- aov(Cumulative_cases ~ group + Country, data = merged_country)
+two_way_res1<-resid(res_aov1)
+shapiro.test(two_way_res1)
+
+# Two-way ANOVA
+two.way <- aov(Cumulative_cases ~ group + Country, data = merged_country)
+summary(two.way)
+
+# AIC used to determine the best model
+AIC(res_aov, two.way)
+
+library(MASS)
+# Evaluate the normality of a Cumulative Cases using a Q-Q plot
+par(mfrow=c(2,4))
+plot(res_aov)
+plot(two.way)
+
+# Shapiro Test
+par(mfrow=c(2,1))
+one_way_res<-resid(res_aov1)
+shapiro.test(one_way_res)
+two_way_res <- resid(two.way)
+shapiro.test(two_way_res)
+```
+
+
+
